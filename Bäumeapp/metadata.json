@@ -1,0 +1,8 @@
+{
+  "name": "Bäume App",
+  "description": "Eine professionelle Anwendung zur Verwaltung und Überwachung von Baumbeständen auf verschiedenen Wiesenflächen mit interaktiver Karte und detaillierter Erfassung.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
