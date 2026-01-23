@@ -1,4 +1,3 @@
-
 name: Deploy to GitHub Pages
 
 on:
@@ -21,13 +20,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # Cache entfernt, da package-lock.json fehlt
 
       - name: Install dependencies 🔧
         run: npm install
 
       - name: Build 🏗️
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
       - name: Create CNAME 📝
         run: echo "baum.vollstromer.de" > dist/CNAME
