@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Bäumeliste</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&family=Noto+Sans:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df20d",
+                        "secondary": "#0d7ff2",
+                        "background-light": "#f5f8f5",
+                        "background-dark": "#101922",
+                        "surface-dark": "#1b2127",
+                        "border-dark": "#283039",
+                        "text-secondary": "#9cabba"
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "Space Grotesk", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Mobile Scroll Optimization */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { 
+            -ms-overflow-style: none; 
+            scrollbar-width: none; 
+            -webkit-overflow-scrolling: touch; 
+            overscroll-behavior-y: contain;
+        }
+
+        /* Rendering Optimization for Long Lists */
+        .list-item-optimized {
+            content-visibility: auto;
+            contain-intrinsic-size: 0 80px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes gps-pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 127, 242, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(13, 127, 242, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 127, 242, 0); }
+        }
+        .user-location-marker {
+            background: #0d7ff2;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 18px !important;
+            height: 18px !important;
+            box-shadow: 0 0 15px rgba(13, 127, 242, 0.8);
+            animation: gps-pulse 2s infinite;
+            will-change: transform;
+        }
+        
+        /* Custom styles for Leaflet */
+        .leaflet-container { 
+            background: #101922 !important; 
+            outline: none;
+        }
+        
+        .leaflet-marker-icon, .leaflet-marker-shadow {
+            will-change: transform;
+        }
+
+        /* Specific filter for dark mode tiles */
+        .leaflet-tile-pane.dark-filter { 
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); 
+        }
+
+        .leaflet-control-zoom { border: none !important; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important; }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out { background-color: #1b2127 !important; color: #9cabba !important; border-bottom: 1px solid #283039 !important; }
+        .leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover { color: #0df20d !important; }
+        .leaflet-control-attribution { background: rgba(27, 33, 39, 0.7) !important; color: #9cabba !important; font-size: 8px !important; }
+        
+        /* Smooth transitions for all UI elements */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button, a {
+            transition: transform 0.2s cubic-bezier(0.17, 0.67, 0.83, 0.67), opacity 0.2s ease;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        body, html, #root {
+            height: 100%;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #101922;
+        }
+    </style>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.91.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/assets/index-CvueUGNU.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/vendor-Byk3uS-z.js">
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white">
+    <div id="root"></div>
+    <!-- WICHTIG: Dies lädt deine App! -->
+</body>
+</html>
