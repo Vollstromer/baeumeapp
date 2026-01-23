@@ -13,6 +13,75 @@ import Auth from './components/Auth';
 export type MapStyle = 'dark' | 'satellite' | 'standard';
 type SyncStatus = 'connected' | 'error' | 'unconfigured' | 'syncing' | 'tables-missing';
 
+// POLISHED SQL SCRIPT (Moved outside component for cleaner parsing)
+const SQL_SCRIPT = `-- 1. Tabellen erstellen
+CREATE TABLE IF NOT EXISTS meadows (
+    id TEXT PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+    name TEXT NOT NULL,
+    area NUMERIC,
+    description TEXT,
+    icon TEXT,
+    "lastChecked" TEXT,
+    location JSONB
+);
+
+CREATE TABLE IF NOT EXISTS trees (
+    id TEXT PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
+    variety TEXT NOT NULL,
+    "meadowId" TEXT REFERENCES meadows(id) ON DELETE CASCADE,
+    "plantingDate" TEXT,
+    condition TEXT,
+    location JSONB,
+    "imageUrl" TEXT,
+    description TEXT
+);
+
+-- 2. RLS Sicherheit aktivieren
+ALTER TABLE meadows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trees ENABLE ROW LEVEL SECURITY;
+
+-- 3. ALTE POLICIES & UNGENUTZTE INDIZES LÖSCHEN
+DROP INDEX IF EXISTS idx_meadows_user_id;
+DROP INDEX IF EXISTS idx_trees_user_id;
+
+DO $$ 
+DECLARE 
+    pol RECORD;
+BEGIN 
+    FOR pol IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('meadows', 'trees')) 
+    LOOP 
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, pol.tablename);
+    END LOOP;
+END $$;
+
+-- 4. TEAM-ZUGRIFF (Clean RLS - Beruhigt den Linter)
+CREATE POLICY "Team Select" ON meadows FOR SELECT TO authenticated USING (auth.role() = 'authenticated');
+CREATE POLICY "Team Insert" ON meadows FOR INSERT TO authenticated WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Team Update" ON meadows FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Team Delete" ON meadows FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Team Select" ON trees FOR SELECT TO authenticated USING (auth.role() = 'authenticated');
+CREATE POLICY "Team Insert" ON trees FOR INSERT TO authenticated WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Team Update" ON trees FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Team Delete" ON trees FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
+
+-- 5. STORAGE SETUP (BILD-UPLOAD)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('tree-images', 'tree-images', true) 
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Select" ON storage.objects;
+DROP POLICY IF EXISTS "Team Upload" ON storage.objects;
+DROP POLICY IF EXISTS "Team Update" ON storage.objects;
+DROP POLICY IF EXISTS "Team Delete" ON storage.objects;
+
+CREATE POLICY "Public Select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'tree-images');
+CREATE POLICY "Team Upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'tree-images');
+CREATE POLICY "Team Update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'tree-images') WITH CHECK (bucket_id = 'tree-images');
+CREATE POLICY "Team Delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'tree-images');`;
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -155,7 +224,7 @@ const App: React.FC = () => {
     }
 
     if (!success && syncStatus !== 'tables-missing') {
-      throw new Error("Speicherfehler: Möglicherweise RLS-Verletzung oder fehlendes Datenbank-Setup. Bitte SQL-Script im Setup-Menu prüfen.");
+      throw new Error("Speicherfehler: Möglicherweise RLS-Verletzung oder fehlendes Datenbank-Setup.");
     }
     
     setViewMode('map');
@@ -208,76 +277,6 @@ const App: React.FC = () => {
     return <Auth onSuccess={() => {}} />;
   }
 
-  // POLISHED SQL SCRIPT (Silences Supabase Warnings)
-  const SQL_SCRIPT = `-- 1. Tabellen erstellen
-CREATE TABLE IF NOT EXISTS meadows (
-    id TEXT PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
-    name TEXT NOT NULL,
-    area NUMERIC,
-    description TEXT,
-    icon TEXT,
-    "lastChecked" TEXT,
-    location JSONB
-);
-
-CREATE TABLE IF NOT EXISTS trees (
-    id TEXT PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
-    variety TEXT NOT NULL,
-    "meadowId" TEXT REFERENCES meadows(id) ON DELETE CASCADE,
-    "plantingDate" TEXT,
-    condition TEXT,
-    location JSONB,
-    "imageUrl" TEXT,
-    description TEXT
-);
-
--- 2. RLS Sicherheit aktivieren
-ALTER TABLE meadows ENABLE ROW LEVEL SECURITY;
-ALTER TABLE trees ENABLE ROW LEVEL SECURITY;
-
--- 3. ALTE POLICIES & UNGENUTZTE INDIZES LÖSCHEN
-DROP INDEX IF EXISTS idx_meadows_user_id;
-DROP INDEX IF EXISTS idx_trees_user_id;
-
-DO $$ 
-DECLARE 
-    pol RECORD;
-BEGIN 
-    FOR pol IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('meadows', 'trees')) 
-    LOOP 
-        EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, pol.tablename);
-    END LOOP;
-END $$;
-
--- 4. TEAM-ZUGRIFF (Clean RLS - Beruhigt den Linter)
--- Wir nutzen auth.role() = 'authenticated' statt 'true'
-CREATE POLICY "Team Select" ON meadows FOR SELECT TO authenticated USING (auth.role() = 'authenticated');
-CREATE POLICY "Team Insert" ON meadows FOR INSERT TO authenticated WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Team Update" ON meadows FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Team Delete" ON meadows FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Team Select" ON trees FOR SELECT TO authenticated USING (auth.role() = 'authenticated');
-CREATE POLICY "Team Insert" ON trees FOR INSERT TO authenticated WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Team Update" ON trees FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Team Delete" ON trees FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
-
--- 5. STORAGE SETUP (BILD-UPLOAD)
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('tree-images', 'tree-images', true) 
-ON CONFLICT (id) DO UPDATE SET public = true;
-
-DROP POLICY IF EXISTS "Public Select" ON storage.objects;
-DROP POLICY IF EXISTS "Team Upload" ON storage.objects;
-DROP POLICY IF EXISTS "Team Update" ON storage.objects;
-DROP POLICY IF EXISTS "Team Delete" ON storage.objects;
-
-CREATE POLICY "Public Select" ON storage.objects FOR SELECT TO public USING (bucket_id = 'tree-images');
-CREATE POLICY "Team Upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'tree-images');
-CREATE POLICY "Team Update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'tree-images') WITH CHECK (bucket_id = 'tree-images');
-CREATE POLICY "Team Delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'tree-images');`;
-
   return (
     <div className="h-full w-full flex flex-col overflow-hidden relative bg-background-dark text-white">
       
@@ -301,7 +300,7 @@ CREATE POLICY "Team Delete" ON storage.objects FOR DELETE TO authenticated USING
                   Sperre Registrierung
                 </h4>
                 <p className="text-xs text-text-secondary leading-relaxed mb-4">
-                  In Supabase: <b>Authentication -> Settings -> Providers -> Email</b>. <br/>
+                  In Supabase: <b>Authentication &rarr; Settings &rarr; Providers &rarr; Email</b>. <br/>
                   Deaktiviere <b>"Allow new users to sign up"</b>.
                 </p>
               </div>
