@@ -134,6 +134,34 @@ export const db = {
     }
   },
 
+  async deleteImage(url: string): Promise<boolean> {
+    try {
+      // Nur Bilder löschen, die auf unserem Supabase Storage liegen
+      if (!url || !url.includes('supabase.co') || !url.includes('/tree-images/')) return true;
+
+      const supabase = loadSupabase();
+      if (!supabase) return true;
+
+      // Extrahiere den Pfad nach dem Bucket-Namen
+      const parts = url.split('/tree-images/');
+      if (parts.length < 2) return true;
+      
+      const filePath = parts[1];
+      const { error } = await supabase.storage
+        .from('tree-images')
+        .remove([filePath]);
+
+      if (error) {
+        console.error('Fehler beim Löschen des Storage-Objekts:', error.message);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Kritische Bild-Delete Exception:', error);
+      return false;
+    }
+  },
+  
   async getTrees(): Promise<{data: Tree[], error?: string, tablesMissing?: boolean}> {
     try {
       const supabase = loadSupabase();
