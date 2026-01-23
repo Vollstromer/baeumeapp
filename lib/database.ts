@@ -3,9 +3,9 @@ import { Tree, Meadow } from '../types';
 
 // Nutzt GitHub Secrets via process.env (VITE_ Präfix ist zwingend erforderlich)
 // Fixed: Property 'env' does not exist on type 'ImportMeta' by using process.env
-const SUPABASE_URL: string = (process.env as any).VITE_SUPABASE_URL || 'https://cpqibgrsshlndobmgzxy.supabase.co';
+const SUPABASE_URL: string = (process.env as any).VITE_SUPABASE_URL || '';
 // Fixed: Property 'env' does not exist on type 'ImportMeta' by using process.env
-const SUPABASE_ANON_KEY: string = (process.env as any).VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwcWliZ3Jzc2hsbmRvYm1nenh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjA0MDEsImV4cCI6MjA4Mzk5NjQwMX0.BaeG5Qk1SL7WrQiJJVUrpZaQpSHISlBoxEX_MN-t1xY';
+const SUPABASE_ANON_KEY: string = (process.env as any).VITE_SUPABASE_ANON_KEY || '';
 
 const isConfigured = () => {
   return SUPABASE_URL && SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 50;
