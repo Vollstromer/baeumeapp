@@ -1,12 +1,8 @@
 
 import { Tree, Meadow } from '../types';
 
-/*const SUPABASE_URL: string = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_URL: string = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-*/
-
-const SUPABASE_URL: string = 'https://cpqibgrsshlndobmgzxy.supabase.co';
-const SUPABASE_ANON_KEY: string = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwcWliZ3Jzc2hsbmRvYm1nenh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjA0MDEsImV4cCI6MjA4Mzk5NjQwMX0.BaeG5Qk1SL7WrQiJJVUrpZaQpSHISlBoxEX_MN-t1xY';
 
 const isConfigured = () => {
   return SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 50;
