@@ -1,25 +1,31 @@
-
+import { createClient } from '@supabase/supabase-js';
 import { Tree, Meadow } from '../types';
 
-const SUPABASE_URL: string = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Nutzt GitHub Secrets via process.env (VITE_ Präfix ist zwingend erforderlich)
+// Fixed: Property 'env' does not exist on type 'ImportMeta' by using process.env
+const SUPABASE_URL: string = (process.env as any).VITE_SUPABASE_URL || 'https://cpqibgrsshlndobmgzxy.supabase.co';
+// Fixed: Property 'env' does not exist on type 'ImportMeta' by using process.env
+const SUPABASE_ANON_KEY: string = (process.env as any).VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwcWliZ3Jzc2hsbmRvYm1nenh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjA0MDEsImV4cCI6MjA4Mzk5NjQwMX0.BaeG5Qk1SL7WrQiJJVUrpZaQpSHISlBoxEX_MN-t1xY';
 
 const isConfigured = () => {
-  return SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 50;
+  return SUPABASE_URL && SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 50;
 };
 
 let supabaseInstance: any = null;
 
-const loadSupabase = async () => {
-  if (!isConfigured()) return null;
+const loadSupabase = () => {
+  if (!isConfigured()) {
+    console.error("Supabase Konfiguration unvollständig.");
+    return null;
+  }
+  
   if (supabaseInstance) return supabaseInstance;
 
   try {
-    const { createClient } = await import('@supabase/supabase-js');
     supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     return supabaseInstance;
   } catch (e) {
-    console.error("Kritischer Fehler beim Laden der Supabase-Bibliothek:", e);
+    console.error("Fehler beim Initialisieren des Supabase Clients:", e);
     return null;
   }
 };
@@ -87,12 +93,12 @@ export const db = {
   isConfigured,
 
   async getSupabase() {
-    return await loadSupabase();
+    return loadSupabase();
   },
 
   async uploadImage(file: File): Promise<string | null> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return null;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -130,7 +136,7 @@ export const db = {
 
   async getTrees(): Promise<{data: Tree[], error?: string, tablesMissing?: boolean}> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return { data: [] };
 
       const { data, error } = await supabase
@@ -152,7 +158,7 @@ export const db = {
 
   async upsertTree(tree: Tree): Promise<boolean> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return true;
       
       const { data: { session } } = await supabase.auth.getSession();
@@ -172,7 +178,7 @@ export const db = {
 
   async deleteTree(id: string): Promise<boolean> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return true;
       const { error } = await supabase.from('trees').delete().eq('id', id);
       return !error;
@@ -183,7 +189,7 @@ export const db = {
 
   async getMeadows(): Promise<{data: Meadow[], error?: string, tablesMissing?: boolean}> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return { data: [] };
 
       const { data, error } = await supabase
@@ -205,7 +211,7 @@ export const db = {
 
   async upsertMeadow(meadow: Meadow): Promise<boolean> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return true;
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -225,7 +231,7 @@ export const db = {
 
   async deleteMeadow(id: string): Promise<boolean> {
     try {
-      const supabase = await loadSupabase();
+      const supabase = loadSupabase();
       if (!supabase) return true;
       const { error } = await supabase.from('meadows').delete().eq('id', id);
       return !error;
