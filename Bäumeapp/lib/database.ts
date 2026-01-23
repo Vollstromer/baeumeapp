@@ -1,4 +1,7 @@
 
+const SUPABASE_URL: string = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
 import { Tree, Meadow } from '../types';
 
 const SUPABASE_URL: string = 'https://cpqibgrsshlndobmgzxy.supabase.co';
