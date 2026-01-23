@@ -102,13 +102,9 @@ export const db = {
       }
 
       const optimizedBlob = await compressAndConvertToWebP(file);
-      // Eindeutiger Dateiname verhindert Kollisionen ohne 'upsert'
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.webp`;
       const filePath = `trees/${fileName}`;
 
-      console.debug('Starte Upload zu Bucket tree-images:', filePath);
-
-      // 'upsert: false' ist stabiler bei Team-RLS-Regeln
       const { error: uploadError } = await supabase.storage
         .from('tree-images')
         .upload(filePath, optimizedBlob, {
@@ -117,7 +113,7 @@ export const db = {
         });
 
       if (uploadError) {
-        console.error('Storage-RLS-Fehler beim Hochladen:', uploadError.message, uploadError);
+        console.error('Storage-RLS-Fehler beim Hochladen:', uploadError.message);
         return null;
       }
 
@@ -125,7 +121,6 @@ export const db = {
         .from('tree-images')
         .getPublicUrl(filePath);
 
-      console.debug('Upload erfolgreich. URL:', data.publicUrl);
       return data.publicUrl;
     } catch (error) {
       console.error('Kritische Bild-Upload Exception:', error);
@@ -143,7 +138,6 @@ export const db = {
         .select('*');
 
       if (error) {
-        console.error('Supabase Fehler (Bäume):', error.message);
         return { 
           data: [], 
           error: error.message, 
@@ -152,7 +146,6 @@ export const db = {
       }
       return { data: data || [] };
     } catch (error) {
-      console.error('Exception beim Laden der Bäume:', error);
       return { data: [], error: 'Netzwerkfehler' };
     }
   },
@@ -171,13 +164,8 @@ export const db = {
       };
 
       const { error } = await supabase.from('trees').upsert(dataToSave);
-      if (error) {
-        console.error('Supabase RLS/DB Fehler (Tree Upsert):', error.message, error.details);
-        return false;
-      }
-      return true;
+      return !error;
     } catch (error) {
-      console.error('Exception Tree Upsert:', error);
       return false;
     }
   },
@@ -187,10 +175,8 @@ export const db = {
       const supabase = await loadSupabase();
       if (!supabase) return true;
       const { error } = await supabase.from('trees').delete().eq('id', id);
-      if (error) console.error('Delete Fehler:', error.message);
       return !error;
     } catch (error) {
-      console.error('Delete Tree Exception:', error);
       return false;
     }
   },
@@ -205,7 +191,6 @@ export const db = {
         .select('*');
 
       if (error) {
-        console.error('Supabase Fehler (Wiesen):', error.message);
         return { 
           data: [], 
           error: error.message, 
@@ -214,7 +199,6 @@ export const db = {
       }
       return { data: data || [] };
     } catch (error) {
-      console.error('Exception beim Laden der Wiesen:', error);
       return { data: [], error: 'Netzwerkfehler' };
     }
   },
@@ -233,13 +217,8 @@ export const db = {
       };
 
       const { error } = await supabase.from('meadows').upsert(dataToSave);
-      if (error) {
-        console.error('Supabase RLS/DB Fehler (Meadow Upsert):', error.message, error.details);
-        return false;
-      }
-      return true;
+      return !error;
     } catch (error) {
-      console.error('Exception Meadow Upsert:', error);
       return false;
     }
   },
@@ -249,10 +228,8 @@ export const db = {
       const supabase = await loadSupabase();
       if (!supabase) return true;
       const { error } = await supabase.from('meadows').delete().eq('id', id);
-      if (error) console.error('Delete Fehler (Wiese):', error.message);
       return !error;
     } catch (error) {
-      console.error('Delete Meadow Exception:', error);
       return false;
     }
   }
