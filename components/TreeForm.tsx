@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Tree, Meadow, TreeCondition } from '../types';
 import { MapStyle } from '../App';
@@ -76,8 +75,10 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
     });
 
     return () => {
-      map.remove();
-      mapInstance.current = null;
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
     };
   }, []);
 
@@ -160,6 +161,9 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Sichere die alte URL, um sie später zu löschen, falls der Upload erfolgreich ist
+      const oldImageUrl = formData.imageUrl;
+      
       // Temporäre Vorschau
       setImagePreview(URL.createObjectURL(file));
       
@@ -169,8 +173,13 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
       
       if (publicUrl) {
         setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+        
+        // Automatisches Aufräumen: Altes Bild löschen, wenn es ersetzt wurde
+        if (oldImageUrl) {
+          await db.deleteImage(oldImageUrl);
+        }
       } else {
-        alert("Upload fehlgeschlagen. Bild wird nur lokal gespeichert.");
+        alert("Upload fehlgeschlagen. Bild wird nur lokal angezeigt.");
       }
     }
   };
@@ -403,3 +412,4 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 };
 
 export default TreeForm;
+
