@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-and-deploy:
@@ -19,16 +21,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # Cache entfernt, da package-lock.json fehlt
 
       - name: Install dependencies 🔧
         run: npm install
 
       - name: Build 🏗️
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Create CNAME 📝
         run: echo "baum.vollstromer.de" > dist/CNAME
@@ -38,4 +37,3 @@ jobs:
         with:
           folder: dist
           branch: gh-pages
-
