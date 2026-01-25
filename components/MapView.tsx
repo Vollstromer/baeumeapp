@@ -80,19 +80,24 @@ const MapView: React.FC<MapViewProps> = ({
 
     let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     let applyFilter = true;
+    let maxNativeZoom = 19;
 
     switch (style) {
       case 'dark':
         url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
         applyFilter = false;
+        maxNativeZoom = 20;
         break;
       case 'satellite':
+        // ArcGIS Satellite bietet meist bis Zoom 18 scharfe Tiles, danach wird gestretcht
         url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         applyFilter = false;
+        maxNativeZoom = 18;
         break;
       case 'standard':
         url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
         applyFilter = true;
+        maxNativeZoom = 19;
         break;
     }
 
@@ -103,10 +108,12 @@ const MapView: React.FC<MapViewProps> = ({
     }
 
     tileLayerRef.current = L.tileLayer(url, {
-      maxZoom: 22,
-      maxNativeZoom: 19,
+      maxZoom: 22, // Erlaubter Zoom der Karte
+      maxNativeZoom: maxNativeZoom, // Hier stoppt das Laden neuer Tiles -> Pixel werden vergrößert
       detectRetina: true,
-      keepBuffer: 2
+      keepBuffer: 4,
+      updateWhenIdle: false,
+      updateWhenZooming: true
     }).addTo(map);
   }, []);
 
