@@ -10,7 +10,7 @@ import TreeDetails from './components/TreeDetails';
 import MeadowForm from './components/MeadowForm';
 import Auth from './components/Auth';
 
-export type MapStyle = 'dark' | 'satellite' | 'standard';
+export type MapStyle = 'google-hybrid' | 'standard';
 type SyncStatus = 'connected' | 'error' | 'unconfigured' | 'syncing' | 'tables-missing';
 
 // POLISHED SQL SCRIPT (Moved outside component for cleaner parsing)
@@ -87,7 +87,7 @@ const App: React.FC = () => {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   
   const [viewMode, setViewMode] = useState<ViewMode>('map');
-  const [mapStyle, setMapStyle] = useState<MapStyle>('standard');
+  const [mapStyle, setMapStyle] = useState<MapStyle>('google-hybrid');
   const [trees, setTrees] = useState<Tree[]>([]);
   const [meadows, setMeadows] = useState<Meadow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -357,7 +357,7 @@ const App: React.FC = () => {
              syncStatus === 'error' ? 'cloud_off' : 
              syncStatus === 'syncing' ? 'sync' : 'database_off'}
           </span>
-          <span className="text-[11px] font-black uppercase tracking-widest">
+          <span className="text-11px] font-black uppercase tracking-widest">
             {syncStatus === 'connected' ? 'Team Cloud' : 
              syncStatus === 'tables-missing' ? 'Setup nötig' :
              syncStatus === 'error' ? 'Sync Fehler' : 
