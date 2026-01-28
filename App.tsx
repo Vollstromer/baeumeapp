@@ -233,13 +233,13 @@ const App: React.FC = () => {
   const handleDeleteTree = async (id: string) => {
     if (!confirm("Soll dieser Baum wirklich gelöscht werden?")) return;
     setIsLoading(true);
-      
-     // Finde den Baum, um die Bild-URL für das automatische Löschen im Storage zu erhalten
+    
+    // Finde den Baum, um die Bild-URL für das automatische Löschen im Storage zu erhalten
     const treeToDelete = trees.find(t => t.id === id);
     if (treeToDelete?.imageUrl) {
       await db.deleteImage(treeToDelete.imageUrl);
     }
-    
+
     const success = await db.deleteTree(id);
     setTrees(trees.filter(t => t.id !== id));
     setSelectedTreeId(null);
