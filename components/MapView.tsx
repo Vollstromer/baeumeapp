@@ -1,5 +1,5 @@
-
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+// Fix: Import React and its hooks to resolve "Cannot find name" and UMD global reference errors
+import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import { Tree, TreeCondition, Meadow } from '../types';
 import { MapStyle } from '../App';
 
@@ -35,7 +35,6 @@ const MapView: React.FC<MapViewProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
-  const alkisLayerRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
   const meadowMarkersRef = useRef<Map<string, any>>(new Map());
   const userMarkerRef = useRef<any>(null);
@@ -48,7 +47,6 @@ const MapView: React.FC<MapViewProps> = ({
   const [isLocating, setIsLocating] = useState(false);
   const [showAccuracy, setShowAccuracy] = useState(false);
   const [isLayersMenuOpen, setIsLayersMenuOpen] = useState(false);
-  const [showBoundaries, setShowBoundaries] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedTree = useMemo(() => trees.find(t => t.id === selectedTreeId), [trees, selectedTreeId]);
@@ -83,16 +81,11 @@ const MapView: React.FC<MapViewProps> = ({
     let maxNativeZoom = 19;
 
     switch (style) {
-      case 'dark':
-        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+      case 'google-hybrid':
+        // Google Maps Hybrid: Satellit mit Beschriftungen
+        url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
         applyFilter = false;
-        maxNativeZoom = 20;
-        break;
-      case 'satellite':
-        // ArcGIS Satellite bietet meist bis Zoom 18 scharfe Tiles, danach wird gestretcht
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        applyFilter = false;
-        maxNativeZoom = 18;
+        maxNativeZoom = 21; // Google bietet oft bis Zoom 21/22 scharfe Bilder
         break;
       case 'standard':
         url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -167,62 +160,6 @@ const MapView: React.FC<MapViewProps> = ({
   useEffect(() => {
     updateTileLayer(mapStyle);
   }, [mapStyle, updateTileLayer]);
-
-  // Funktion zum Umschalten der Grenzen (mit manuellem Zoom)
-  const toggleALKISBoundaries = () => {
-    const nextState = !showBoundaries;
-    setShowBoundaries(nextState);
-    
-    const map = mapInstanceRef.current;
-    if (nextState && map && map.getZoom() < 15) {
-      map.setZoom(16, { animate: true });
-    }
-  };
-
-  // Stabiles ALKIS Layer Management
-  useEffect(() => {
-    const L = (window as any).L;
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    // Erstelle ALKIS Pane für Invertierungs-Filter
-    if (!map.getPane('alkisPane')) {
-      const pane = map.createPane('alkisPane');
-      pane.style.zIndex = '450';
-      pane.style.pointerEvents = 'none';
-    }
-
-    // Filter-Update bei Stilwechsel
-    const alkisPane = map.getPane('alkisPane');
-    if (alkisPane) {
-      const needsInversion = mapStyle !== 'standard';
-      alkisPane.style.filter = needsInversion 
-        ? 'invert(100%) brightness(300%) contrast(150%)' 
-        : 'none';
-    }
-
-    // Layer hinzufügen/entfernen
-    if (showBoundaries) {
-      if (!alkisLayerRef.current) {
-        alkisLayerRef.current = L.tileLayer.wms('https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_INSP_BW_Flst_ALKIS', {
-          layers: 'cp:CadastralParcel',
-          format: 'image/png',
-          transparent: true,
-          version: '1.3.0',
-          pane: 'alkisPane',
-          opacity: 0.9,
-          attribution: 'LGL BW (ALKIS)',
-          minZoom: 15,
-          maxZoom: 22
-        }).addTo(map);
-      }
-    } else {
-      if (alkisLayerRef.current) {
-        alkisLayerRef.current.remove();
-        alkisLayerRef.current = null;
-      }
-    }
-  }, [showBoundaries, mapStyle]);
 
   const updateUserLocation = useCallback((pos: GeolocationPosition, forceFly: boolean = false) => {
     const L = (window as any).L;
@@ -439,12 +376,11 @@ const MapView: React.FC<MapViewProps> = ({
                 <div className="grid grid-cols-1 gap-1">
                   {[
                     { id: 'standard', label: 'Standard (Hell)', icon: 'map' },
-                    { id: 'satellite', label: 'Satellit', icon: 'satellite' },
-                    { id: 'dark', label: 'Dunkel', icon: 'dark_mode' }
+                    { id: 'google-hybrid', label: 'Google Hybrid', icon: 'satellite_alt' }
                   ].map((style) => (
                     <button
                       key={style.id}
-                      onClick={() => { setMapStyle(style.id as MapStyle); }}
+                      onClick={() => { setMapStyle(style.id as MapStyle); setIsLayersMenuOpen(false); }}
                       className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-xs font-bold
                         ${mapStyle === style.id ? 'bg-primary text-background-dark' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
                     >
@@ -452,23 +388,6 @@ const MapView: React.FC<MapViewProps> = ({
                       {style.label}
                     </button>
                   ))}
-                </div>
-                <div className="h-px bg-white/10 my-1 mx-2"></div>
-                <p className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-text-secondary opacity-50">Flurstücke (BW)</p>
-                <div className="px-2 pb-2">
-                  <button
-                    onClick={toggleALKISBoundaries}
-                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all text-xs font-bold
-                      ${showBoundaries ? 'bg-secondary/20 text-secondary border border-secondary/30' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[18px]">account_balance</span>
-                      ALKIS Grenzen
-                    </div>
-                    <div className={`size-5 rounded-full flex items-center justify-center border transition-all ${showBoundaries ? 'bg-secondary border-secondary' : 'border-white/20'}`}>
-                      {showBoundaries && <span className="material-symbols-outlined text-white text-[12px]">check</span>}
-                    </div>
-                  </button>
                 </div>
               </div>
             )}
