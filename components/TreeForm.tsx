@@ -89,15 +89,13 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 
     let url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     let applyFilter = true;
+    let maxNativeZoom = 19;
 
     switch (style) {
-      case 'dark':
-        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+      case 'google-hybrid':
+        url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
         applyFilter = false;
-        break;
-      case 'satellite':
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        applyFilter = false;
+        maxNativeZoom = 21;
         break;
       case 'standard':
         url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -113,7 +111,7 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 
     tileLayerRef.current = L.tileLayer(url, {
       maxZoom: 22,
-      maxNativeZoom: 19
+      maxNativeZoom: maxNativeZoom
     }).addTo(map);
   };
 
@@ -412,4 +410,3 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 };
 
 export default TreeForm;
-
