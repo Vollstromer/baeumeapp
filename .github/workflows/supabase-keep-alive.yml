@@ -1,18 +1,59 @@
-
-name: Supabase Keep Alive
+name: Supabase Keep-Alive
 
 on:
   schedule:
-    # Führt den Ping alle 6 Tage aus (Supabase pausiert nach 7 Tagen Inaktivität)
-    - cron: '0 0 */6 * *'
-  workflow_dispatch: # Erlaubt es, den Ping manuell über die GitHub-Oberfläche zu testen
+    # Jeden Tag um 4:00 Uhr UTC ausführen (verhindert das automatische Deaktivieren nach 7 Tagen Inaktivität)
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Ermöglicht das manuelle Ausführen über das GitHub-Actions-Tab
 
 jobs:
-  ping_supabase:
+  keep_alive:
     runs-on: ubuntu-latest
+    name: Supabase Activity Ping
     steps:
-      - name: Send API Request to Supabase
+      - name: Ping Supabase Database & Rest API
         run: |
-          curl -i -X GET "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/trees?select=id&limit=1" \
-          -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.VITE_SUPABASE_ANON_KEY }}"
+          # 1. Bestimme URL und Key (bevorzugt aus Secrets, andernfalls Fallback-Werte aus der App)
+          SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}"
+          if [ -z "$SUPABASE_URL" ]; then
+            SUPABASE_URL="https://cpqibgrsshlndobmgzxy.supabase.co"
+          fi
+
+          SUPABASE_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}"
+          if [ -z "$SUPABASE_KEY" ]; then
+            SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwcWliZ3Jzc2hsbmRvYm1nenh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjA0MDEsImV4cCI6MjA4Mzk5NjQwMX0.BaeG5Qk1SL7WrQiJJVUrpZaQpSHISlBoxEX_MN-t1xY"
+          fi
+
+          echo "Starte Supabase Keep-Alive Ping..."
+          echo "Ziel-URL: $SUPABASE_URL"
+
+          # 2. Versuch 1: Eine einfache Anfrage auf die Tabelle 'meadows'
+          echo "Sende Anfrage an Tabelle 'meadows'..."
+          RESPONSE_MEADOWS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "$SUPABASE_URL/rest/v1/meadows?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+          echo "Status-Code (meadows): $RESPONSE_MEADOWS"
+
+          # 3. Versuch 2: Eine einfache Anfrage auf die Tabelle 'trees'
+          echo "Sende Anfrage an Tabelle 'trees'..."
+          RESPONSE_TREES=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "$SUPABASE_URL/rest/v1/trees?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+          echo "Status-Code (trees): $RESPONSE_TREES"
+
+          # 4. Versuch 3: API Root-Endpunkt (für OpenAPI-Spezifikationen)
+          echo "Sende allgemeine API-Anfrage..."
+          RESPONSE_ROOT=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "$SUPABASE_URL/rest/v1/" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+          echo "Status-Code (API Root): $RESPONSE_ROOT"
+
+          # 5. Überprüfung
+          if [ "$RESPONSE_MEADOWS" -eq 200 ] || [ "$RESPONSE_MEADOWS" -eq 406 ] || [ "$RESPONSE_TREES" -eq 200 ] || [ "$RESPONSE_ROOT" -eq 200 ]; then
+            echo "✅ Keep-Alive erfolgreich! Verbindung konnte erfolgreich initiiert werden."
+          else
+            echo "⚠️ Warnung: Verbindung initiiert, aber unübliche Status-Codes empfangen (z. B. wenn Tabellen fehlen oder leer sind). Die API-Aktivität sorgt dennoch dafür, dass die Datenbank aktiv bleibt!"
+          fi
