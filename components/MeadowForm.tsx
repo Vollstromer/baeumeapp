@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Meadow } from '../types';
 import { MapStyle } from '../App';
@@ -5,11 +6,12 @@ import { MapStyle } from '../App';
 interface MeadowFormProps {
   meadow: Meadow | null;
   mapStyle: MapStyle;
-  onSave: (meadow: Partial<Meadow>) => Promise<void>; // Rückgabe eines Promises für Fehlerhandling
+  onSave: (meadow: Partial<Meadow>) => Promise<void>;
   onCancel: () => void;
+  onDelete?: (id: string) => void;
 }
 
-const MeadowForm: React.FC<MeadowFormProps> = ({ meadow, mapStyle, onSave, onCancel }) => {
+const MeadowForm: React.FC<MeadowFormProps> = ({ meadow, mapStyle, onSave, onCancel, onDelete }) => {
   const [formData, setFormData] = useState<Partial<Meadow>>(
     meadow || {
       name: '',
@@ -23,6 +25,7 @@ const MeadowForm: React.FC<MeadowFormProps> = ({ meadow, mapStyle, onSave, onCan
   const [error, setError] = useState<string | null>(null);
   const [loadingLoc, setLoadingLoc] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
@@ -148,6 +151,17 @@ const MeadowForm: React.FC<MeadowFormProps> = ({ meadow, mapStyle, onSave, onCan
     }
   };
 
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (meadow && onDelete) {
+      onDelete(meadow.id);
+    }
+    setShowDeleteConfirm(false);
+  };
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       setError("Geolocation wird von Ihrem Browser nicht unterstützt.");
@@ -164,14 +178,14 @@ const MeadowForm: React.FC<MeadowFormProps> = ({ meadow, mapStyle, onSave, onCan
       },
       (err) => {
         setLoadingLoc(false);
-        setError("Standort konnte nicht ermittelt werden (Berechtigung?).");
+        setError("Standort konnte nicht ermittelt werden.");
       },
       { enableHighAccuracy: true }
     );
   };
 
   return (
-    <div className="bg-background-dark h-full flex flex-col text-white animate-fade-in overflow-hidden">
+    <div className="bg-background-dark h-full flex flex-col text-white animate-fade-in overflow-hidden max-h-[100dvh]">
       <header className="flex items-center justify-between border-b border-border-dark px-4 md:px-10 py-4 bg-surface-dark sticky top-0 z-50 shrink-0">
         <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
           <div className="size-9 md:size-10 flex items-center justify-center rounded-xl bg-secondary/10 text-secondary border border-secondary/20 shrink-0">
@@ -288,6 +302,52 @@ const MeadowForm: React.FC<MeadowFormProps> = ({ meadow, mapStyle, onSave, onCan
                 <p className="mt-4 text-[10px] md:text-[11px] text-text-secondary italic text-center">
                   Ziehen Sie den Marker oder klicken Sie auf die Karte.
                 </p>
+
+                {meadow && onDelete && (
+                  <button 
+                    type="button"
+                    onClick={handleDelete}
+                    className="mt-6 w-full h-11 md:h-12 flex items-center justify-center gap-2 border border-red-500/30 text-red-400 bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-all font-bold text-xs md:text-sm active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-lg">delete</span>
+                    Diese Wiese löschen
+                  </button>
+                )}
+
+                {showDeleteConfirm && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in pointer-events-auto">
+                    <div className="bg-surface-dark border border-red-500/30 rounded-[2rem] max-w-md w-full p-6 md:p-8 shadow-2xl">
+                      <div className="flex items-center gap-4 text-red-400 mb-4">
+                        <span className="material-symbols-outlined text-4xl bg-red-500/10 p-3 rounded-2xl">warning</span>
+                        <div>
+                          <h3 className="text-xl font-bold text-white">Wiese löschen?</h3>
+                          <p className="text-xs text-text-secondary uppercase tracking-widest font-bold">Unwiderruflicher Vorgang</p>
+                        </div>
+                      </div>
+                      
+                      <p className="text-text-secondary text-sm leading-relaxed mb-6">
+                        Soll diese Wiese wirklich gelöscht werden? Alle zugehörigen Bäume werden ebenfalls dauerhaft entfernt.
+                      </p>
+                      
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="flex-1 h-12 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold transition-all border border-white/5 text-sm"
+                        >
+                          Abbrechen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={confirmDelete}
+                          className="flex-1 h-12 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-500/20 text-sm"
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </section>
             </div>
           </div>
