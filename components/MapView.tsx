@@ -3,6 +3,35 @@ import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react'
 import { Tree, TreeCondition, Meadow } from '../types';
 import { MapStyle } from '../App';
 
+const createMeadowIcon = (L: any, meadow: Meadow, isSelected: boolean) => {
+  return L.divIcon({
+    html: `<div class="flex flex-col items-center group transition-all duration-500 ${isSelected ? 'scale-125 z-[1000]' : 'hover:scale-110'}">
+        <div class="flex items-center justify-center size-10 rounded-xl shadow-2xl border-2 backdrop-blur-sm transition-all
+          ${isSelected ? 'bg-secondary border-white text-white' : 'bg-secondary/20 border-secondary/50 text-secondary'}">
+          <span class="material-symbols-outlined text-[20px]">${meadow.icon || 'agriculture'}</span>
+        </div>
+        ${isSelected ? `<div class="mt-1 bg-secondary text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-lg truncate max-w-[120px] font-bold">${meadow.name}</div>` : ''}
+      </div>`,
+    className: 'custom-meadow-marker',
+    iconSize: [40, 60],
+    iconAnchor: [20, 40],
+  });
+};
+
+const createTreeIcon = (L: any, tree: Tree, isSelected: boolean) => {
+  return L.divIcon({
+    html: `<div class="flex flex-col items-center group transition-all duration-500 ${isSelected ? 'scale-125 z-[1000]' : 'hover:scale-110'}">
+        <div class="relative flex items-center justify-center size-10 rounded-full shadow-2xl border-2 ${isSelected ? 'bg-primary border-white text-background-dark' : 'bg-surface-dark border-primary/50 text-primary'}">
+          <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1">park</span>
+        </div>
+        ${isSelected ? `<div class="mt-1 bg-primary text-background-dark px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-lg truncate max-w-[120px] font-bold">${tree.variety}</div>` : ''}
+      </div>`,
+    className: 'custom-tree-marker',
+    iconSize: [40, 60],
+    iconAnchor: [20, 40],
+  });
+};
+
 interface MapViewProps {
   trees: Tree[];
   meadows: Meadow[];
@@ -248,18 +277,7 @@ const MapView: React.FC<MapViewProps> = ({
 
     meadows.forEach(meadow => {
       const isSelected = selectedMeadowId === meadow.id;
-      const icon = L.divIcon({
-        html: `<div class="flex flex-col items-center group transition-all duration-500 ${isSelected ? 'scale-125 z-[1000]' : 'hover:scale-110'}">
-            <div class="flex items-center justify-center size-10 rounded-xl shadow-2xl border-2 backdrop-blur-sm transition-all
-              ${isSelected ? 'bg-secondary border-white text-white' : 'bg-secondary/20 border-secondary/50 text-secondary'}">
-              <span class="material-symbols-outlined text-[20px]">${meadow.icon || 'agriculture'}</span>
-            </div>
-            ${isSelected ? `<div class="mt-1 bg-secondary text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-lg truncate max-w-[120px] font-bold">${meadow.name}</div>` : ''}
-          </div>`,
-        className: 'custom-meadow-marker',
-        iconSize: [40, 60],
-        iconAnchor: [20, 40],
-      });
+      const icon = createMeadowIcon(L, meadow, isSelected);
       const marker = L.marker([meadow.location.lat, meadow.location.lng], { icon, zIndexOffset: isSelected ? 2000 : 100 }).addTo(map);
       marker.on('click', (e: any) => { 
         L.DomEvent.stopPropagation(e); 
@@ -270,17 +288,7 @@ const MapView: React.FC<MapViewProps> = ({
 
     trees.forEach(tree => {
       const isSelected = selectedTreeId === tree.id;
-      const icon = L.divIcon({
-        html: `<div class="flex flex-col items-center group transition-all duration-500 ${isSelected ? 'scale-125 z-[1000]' : 'hover:scale-110'}">
-            <div class="relative flex items-center justify-center size-10 rounded-full shadow-2xl border-2 ${isSelected ? 'bg-primary border-white text-background-dark' : 'bg-surface-dark border-primary/50 text-primary'}">
-              <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1">park</span>
-            </div>
-            ${isSelected ? `<div class="mt-1 bg-primary text-background-dark px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-lg truncate max-w-[120px] font-bold">${tree.variety}</div>` : ''}
-          </div>`,
-        className: 'custom-tree-marker',
-        iconSize: [40, 60],
-        iconAnchor: [20, 40],
-      });
+      const icon = createTreeIcon(L, tree, isSelected);
       const marker = L.marker([tree.location.lat, tree.location.lng], { icon, zIndexOffset: isSelected ? 2000 : 500 })
         .addTo(map)
         .on('click', (e: any) => { 
@@ -289,7 +297,30 @@ const MapView: React.FC<MapViewProps> = ({
         });
       markersRef.current.set(tree.id, marker);
     });
-  }, [trees, meadows, selectedTreeId, selectedMeadowId, onTreeClick, onMeadowClick]);
+  }, [trees, meadows, onTreeClick, onMeadowClick]);
+
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!L || !mapInstanceRef.current) return;
+
+    meadows.forEach(meadow => {
+      const marker = meadowMarkersRef.current.get(meadow.id);
+      if (marker) {
+        const isSelected = selectedMeadowId === meadow.id;
+        marker.setIcon(createMeadowIcon(L, meadow, isSelected));
+        marker.setZIndexOffset(isSelected ? 2000 : 100);
+      }
+    });
+
+    trees.forEach(tree => {
+      const marker = markersRef.current.get(tree.id);
+      if (marker) {
+        const isSelected = selectedTreeId === tree.id;
+        marker.setIcon(createTreeIcon(L, tree, isSelected));
+        marker.setZIndexOffset(isSelected ? 2000 : 500);
+      }
+    });
+  }, [selectedTreeId, selectedMeadowId, trees, meadows]);
 
   useEffect(() => {
     if (selectedTree && mapInstanceRef.current && !isTracking) {
@@ -313,6 +344,7 @@ const MapView: React.FC<MapViewProps> = ({
   return (
     <div className="relative w-full h-full bg-background-dark overflow-hidden">
       <div ref={mapContainerRef} className="absolute inset-0 z-0 bg-[#101922]" />
+
       {errorMessage && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-sm animate-fade-in pointer-events-auto">
           <div className="flex items-center gap-3 bg-red-500/90 backdrop-blur-xl border border-red-400 text-white p-4 rounded-xl shadow-2xl">
@@ -324,6 +356,7 @@ const MapView: React.FC<MapViewProps> = ({
           </div>
         </div>
       )}
+
       <div className="absolute top-6 left-6 right-6 z-30 pointer-events-none flex items-center justify-between">
         <div className="flex items-center gap-3 pointer-events-auto relative">
           <div className="flex flex-col gap-2">
