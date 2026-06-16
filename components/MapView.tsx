@@ -47,7 +47,15 @@ const MapView: React.FC<MapViewProps> = ({
   const [isLocating, setIsLocating] = useState(false);
   const [showAccuracy, setShowAccuracy] = useState(false);
   const [isLayersMenuOpen, setIsLayersMenuOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage]);
 
   const selectedTree = useMemo(() => trees.find(t => t.id === selectedTreeId), [trees, selectedTreeId]);
   const selectedMeadow = useMemo(() => meadows.find(m => m.id === selectedMeadowId), [meadows, selectedMeadowId]);
@@ -222,7 +230,7 @@ const MapView: React.FC<MapViewProps> = ({
       (err) => {
         setIsLocating(false);
         setShowAccuracy(false);
-        alert("GPS Signal konnte nicht empfangen werden.");
+        setErrorMessage("Kein GPS-Empfang: Aktivieren Sie die Standortermittlung im Browser.");
       },
       options
     );
@@ -305,7 +313,17 @@ const MapView: React.FC<MapViewProps> = ({
   return (
     <div className="relative w-full h-full bg-background-dark overflow-hidden">
       <div ref={mapContainerRef} className="absolute inset-0 z-0 bg-[#101922]" />
-
+      {errorMessage && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-sm animate-fade-in pointer-events-auto">
+          <div className="flex items-center gap-3 bg-red-500/90 backdrop-blur-xl border border-red-400 text-white p-4 rounded-xl shadow-2xl">
+            <span className="material-symbols-outlined shrink-0 bg-white/20 p-2 rounded-xl">warning</span>
+            <p className="text-xs font-bold leading-relaxed flex-1">{errorMessage}</p>
+            <button onClick={() => setErrorMessage(null)} className="opacity-70 hover:opacity-100 transition-opacity">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        </div>
+      )}
       <div className="absolute top-6 left-6 right-6 z-30 pointer-events-none flex items-center justify-between">
         <div className="flex items-center gap-3 pointer-events-auto relative">
           <div className="flex flex-col gap-2">
