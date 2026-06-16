@@ -85,7 +85,8 @@ CREATE POLICY "Team Delete" ON storage.objects FOR DELETE TO authenticated USING
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  
+  const [isCopied, setIsCopied] = useState(false);
+
   const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [mapStyle, setMapStyle] = useState<MapStyle>('google-hybrid');
   const [trees, setTrees] = useState<Tree[]>([]);
@@ -326,11 +327,15 @@ const App: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 mt-8">
               <button 
-                onClick={() => { navigator.clipboard.writeText(SQL_SCRIPT); alert("Optimiertes SQL kopiert!"); }}
-                className="flex-1 h-16 bg-primary text-background-dark rounded-2xl font-black flex items-center justify-center gap-3 hover:brightness-110 transition-all shadow-lg shadow-primary/20"
+                onClick={() => { 
+                  navigator.clipboard.writeText(SQL_SCRIPT); 
+                  setIsCopied(true); 
+                  setTimeout(() => setIsCopied(false), 3000); 
+                }}
+                className={`flex-1 h-16 rounded-2xl font-black flex items-center justify-center gap-3 transition-all duration-300 shadow-lg ${isCopied ? 'bg-green-600 text-white shadow-green-600/20' : 'bg-primary text-background-dark shadow-primary/20 hover:brightness-110'}`}
               >
-                <span className="material-symbols-outlined">content_copy</span>
-                SQL kopieren
+                <span className="material-symbols-outlined">{isCopied ? 'check_circle' : 'content_copy'}</span>
+                {isCopied ? 'SQL kopiert!' : 'SQL kopieren'}
               </button>
               <button 
                 onClick={() => setShowSetupHelper(false)}
