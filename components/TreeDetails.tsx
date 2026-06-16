@@ -11,6 +11,7 @@ interface TreeDetailsProps {
 
 const TreeDetails: React.FC<TreeDetailsProps> = ({ tree, onEdit, onDelete, onClose }) => {
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Esc-Taste zum Schließen der Lightbox
   useEffect(() => {
@@ -20,6 +21,15 @@ const TreeDetails: React.FC<TreeDetailsProps> = ({ tree, onEdit, onDelete, onClo
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    onDelete();
+    setShowDeleteConfirm(false);
+  };
 
   return (
     <div className="bg-background-dark h-full flex flex-col text-white animate-fade-in overflow-y-auto no-scrollbar relative">
@@ -131,7 +141,7 @@ const TreeDetails: React.FC<TreeDetailsProps> = ({ tree, onEdit, onDelete, onClo
                 <span>Daten anpassen</span>
               </button>
               <button 
-                onClick={onDelete}
+                onClick={handleDelete}
                 className="flex-1 h-20 px-8 flex items-center justify-center gap-4 rounded-[1.5rem] bg-white/5 border-2 border-red-500/20 hover:border-red-500/40 hover:bg-red-500/10 text-red-400 text-xl font-bold tracking-wide transition-all duration-200 transform active:scale-[0.98]"
               >
                 <span className="material-symbols-outlined text-3xl">delete</span>
@@ -141,6 +151,41 @@ const TreeDetails: React.FC<TreeDetailsProps> = ({ tree, onEdit, onDelete, onClo
           </div>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in pointer-events-auto">
+          <div className="bg-surface-dark border border-red-500/30 rounded-[2rem] max-w-md w-full p-6 md:p-8 shadow-2xl text-left">
+            <div className="flex items-center gap-4 text-red-400 mb-4">
+              <span className="material-symbols-outlined text-4xl bg-red-500/10 p-3 rounded-2xl">warning</span>
+              <div>
+                <h3 className="text-xl font-bold text-white">Baum löschen?</h3>
+                <p className="text-xs text-text-secondary uppercase tracking-widest font-bold">Unwiderruflicher Vorgang</p>
+              </div>
+            </div>
+            
+            <p className="text-text-secondary text-sm leading-relaxed mb-6">
+              Soll dieser Baum wirklich von der Wiese entfernt werden?
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-12 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold transition-all border border-white/5 text-sm"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="flex-1 h-12 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-500/20 text-sm"
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <style>{`
         @keyframes zoomIn {
