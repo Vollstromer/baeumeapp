@@ -1,3 +1,4 @@
+
 // Fix: Import React and its hooks to resolve "Cannot find name" and UMD global reference errors
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import { Tree, TreeCondition, Meadow } from '../types';
@@ -30,6 +31,80 @@ const createTreeIcon = (L: any, tree: Tree, isSelected: boolean) => {
     iconSize: [40, 60],
     iconAnchor: [20, 40],
   });
+};
+
+export const getReliablePosition = (
+  onSuccess: (pos: GeolocationPosition) => void,
+  onError: (err: GeolocationPositionError, systemMessage?: string) => void,
+  onStatusUpdate?: (status: string | null) => void
+) => {
+  if (!navigator.geolocation) {
+    const mockError = {
+      code: 0,
+      message: "Geolocation not supported",
+      PERMISSION_DENIED: 1,
+      POSITION_UNAVAILABLE: 2,
+      TIMEOUT: 3
+    } as GeolocationPositionError;
+    onError(mockError, "Ihr Browser unterstützt keine Geolocation.");
+    return;
+  }
+
+  onStatusUpdate?.("Grober Standort wird ermittelt...");
+
+  // Versuche zuerst eine schnelle Positionsbestimmung aus dem Cache / IP (sehr verlässlich im Innenbereich)
+  navigator.geolocation.getCurrentPosition(
+    (cachedPos) => {
+      // Erfolg aus Cache, sofort anzeigen!
+      onSuccess(cachedPos);
+      
+      onStatusUpdate?.("Genauer GPS-Standort wird gesucht...");
+      // Versuche im Hintergrund einen viel präziseren GPS-Lock zu erhalten
+      navigator.geolocation.getCurrentPosition(
+        (precisePos) => {
+          onSuccess(precisePos);
+          onStatusUpdate?.(null);
+        },
+        (preciseErr) => {
+          console.warn("Präzises GPS fehlgeschlagen, behalte unpräzisen Standort:", preciseErr);
+          onStatusUpdate?.(null);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    },
+    (firstErr) => {
+      // Wenn der schnelle Cache-Versuch fehlgeschlagen ist, gehe direkt auf hohe Genauigkeit
+      onStatusUpdate?.("Genauer GPS-Standort wird gesucht...");
+      navigator.geolocation.getCurrentPosition(
+        (precisePos) => {
+          onSuccess(precisePos);
+          onStatusUpdate?.(null);
+        },
+        (preciseErr) => {
+          // Wenn hohe Genauigkeit einen Timeout wirft, versuche normale Genauigkeit (Mobilfunk, WLAN)
+          if (preciseErr.code === 3 || preciseErr.code === 2) {
+            onStatusUpdate?.("Alternativer Ortungsmodus...");
+            navigator.geolocation.getCurrentPosition(
+              (fallbackPos) => {
+                onSuccess(fallbackPos);
+                onStatusUpdate?.(null);
+              },
+              (fallbackErr) => {
+                onError(fallbackErr, "Ortung komplett fehlgeschlagen.");
+                onStatusUpdate?.(null);
+              },
+              { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+            );
+          } else {
+            onError(preciseErr, "Ortung fehlgeschlagen.");
+            onStatusUpdate?.(null);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    },
+    { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 } // erlaubt bis zu 5 Min alte Positionen für den Schnellstart
+  );
 };
 
 interface MapViewProps {
@@ -244,24 +319,48 @@ const MapView: React.FC<MapViewProps> = ({
       return;
     }
     setIsLocating(true);
-    const options = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
-    navigator.geolocation.getCurrentPosition(
+    setErrorMessage("GPS-Ortung gestartet...");
+
+    getReliablePosition(
       (pos) => {
         updateUserLocation(pos, true);
         setIsLocating(false);
         setIsTracking(true);
+        
+        // Watch-Optionen entspannter gestalten für maximale Zuverlässigkeit im Hintergrund
+        const watchOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 };
+        if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+        
         watchIdRef.current = navigator.geolocation.watchPosition(
           (watchPos) => updateUserLocation(watchPos),
-          (err) => console.warn(err),
-          options
+          (err) => {
+            console.warn("Hintergrund-GPS Aktualisierung verzögert:", err.message);
+          },
+          watchOptions
         );
       },
-      (err) => {
+      (err, systemMessage) => {
         setIsLocating(false);
         setShowAccuracy(false);
-        setErrorMessage("Kein GPS-Empfang: Aktivieren Sie die Standortermittlung im Browser.");
+        stopTracking();
+        
+        let detailedMsg = "GPS-Verbindung fehlgeschlagen.";
+        if (err.code === 1) {
+          detailedMsg = "Standort-Zugriff verweigert. Bitte aktivieren Sie GPS-Rechte in der Browser-Leiste.";
+        } else if (err.code === 2) {
+          detailedMsg = "Position unbestimmbar. Prüfen Sie, ob GPS auf Ihrem Gerät aktiv ist.";
+        } else if (err.code === 3) {
+          detailedMsg = "Zeitüberschreitung. Die Ortung dauert ungewöhnlich lange. Bitte versuchen Sie es im Freien.";
+        } else if (systemMessage) {
+          detailedMsg = systemMessage;
+        }
+        setErrorMessage(detailedMsg);
       },
-      options
+      (status) => {
+        if (status) {
+          setErrorMessage(status);
+        }
+      }
     );
   };
 
@@ -345,17 +444,41 @@ const MapView: React.FC<MapViewProps> = ({
     <div className="relative w-full h-full bg-background-dark overflow-hidden">
       <div ref={mapContainerRef} className="absolute inset-0 z-0 bg-[#101922]" />
 
-      {errorMessage && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-3rem)] max-w-sm animate-fade-in pointer-events-auto">
-          <div className="flex items-center gap-3 bg-red-500/90 backdrop-blur-xl border border-red-400 text-white p-4 rounded-xl shadow-2xl">
-            <span className="material-symbols-outlined shrink-0 bg-white/20 p-2 rounded-xl">warning</span>
-            <p className="text-xs font-bold leading-relaxed flex-1">{errorMessage}</p>
-            <button onClick={() => setErrorMessage(null)} className="opacity-70 hover:opacity-100 transition-opacity">
-              <span className="material-symbols-outlined text-sm">close</span>
-            </button>
+      {errorMessage && (() => {
+        const isStatus = errorMessage.includes('sucht') || 
+                        errorMessage.includes('suchen') || 
+                        errorMessage.includes('gestartet') || 
+                        errorMessage.includes('ermittelt') || 
+                        errorMessage.includes('Ortung');
+        return (
+          <div className="absolute top-[calc(1.5rem+env(safe-area-inset-top,16px))] left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 z-[9999] md:w-full md:max-w-sm animate-fade-in pointer-events-auto">
+            <div className={`flex items-center gap-3 backdrop-blur-xl border p-4 rounded-2xl shadow-2xl text-left transition-all duration-300
+              ${isStatus 
+                ? 'bg-background-dark/95 border-primary/30 text-white shadow-primary/10' 
+                : 'bg-red-500/95 border-red-400 text-white shadow-red-500/20'
+              }`}
+            >
+              <span className={`material-symbols-outlined shrink-0 p-2 rounded-xl text-center flex items-center justify-center
+                ${isStatus ? 'bg-primary/10 text-primary animate-spin' : 'bg-white/20 text-white'}`}
+              >
+                {isStatus ? 'sync' : 'warning'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                  {isStatus ? 'GPS-Status' : 'Fehler'}
+                </p>
+                <p className="text-xs font-bold leading-relaxed break-words">{errorMessage}</p>
+              </div>
+              <button 
+                onClick={() => setErrorMessage(null)} 
+                className="opacity-70 hover:opacity-100 transition-opacity p-1.5 hover:bg-white/5 rounded-lg"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="absolute top-6 left-6 right-6 z-30 pointer-events-none flex items-center justify-between">
         <div className="flex items-center gap-3 pointer-events-auto relative">
