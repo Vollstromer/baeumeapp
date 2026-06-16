@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Tree, Meadow, TreeCondition } from '../types';
 import { MapStyle } from '../App';
 import { db } from '../lib/database';
+import { getReliablePosition } from './MapView';
 
 interface TreeFormProps {
   tree: Tree | null;
@@ -28,6 +30,7 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
   const [isUploading, setIsUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(tree?.imageUrl || null);
   const [error, setError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
@@ -186,17 +189,36 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
   };
 
   const getCurrentLocation = () => {
+    if (isLocating) return;
+    setIsLocating(true);
     setError(null);
-    navigator.geolocation.getCurrentPosition(
+
+    getReliablePosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         updateLocation(latitude, longitude);
         mapInstance.current?.flyTo([latitude, longitude], 19);
+        setIsLocating(false);
       },
-      () => {
-        setError("Standort konnte nicht ermittelt werden (Prüfen Sie Ihre GPS- und Berechtigungseinstellungen).");
+      (err, systemMessage) => {
+        setIsLocating(false);
+        let detailedMsg = "Standort konnte nicht ermittelt werden.";
+        if (err.code === 1) {
+          detailedMsg = "Standort-Zugriff verweigert. Bitte aktivieren Sie GPS-Rechte in den Browser-Einstellungen.";
+        } else if (err.code === 2) {
+          detailedMsg = "GPS-Signal nicht verfügbar. Versuchen Sie es im Freien.";
+        } else if (err.code === 3) {
+          detailedMsg = "Zeitüberschreitung bei der GPS-Ortung. Bitte versuchen Sie es erneut.";
+        } else if (systemMessage) {
+          detailedMsg = systemMessage;
+        }
+        setError(detailedMsg);
       },
-      { enableHighAccuracy: true }
+      (status) => {
+        if (status) {
+          setError(status);
+        }
+      }
     );
   };
 
@@ -258,21 +280,39 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
       </header>
 
       <div className="max-w-7xl mx-auto w-full p-6 md:p-10">
-        {error && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-2xl flex items-center gap-3 animate-shake shrink-0">
-            <span className="material-symbols-outlined size-9 flex items-center justify-center bg-red-500/20 rounded-xl shrink-0">warning</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-xs uppercase tracking-wider">Meldung</p>
-              <p className="text-xs md:text-sm opacity-90">{error}</p>
-            </div>
-            <button 
-              onClick={() => setError(null)}
-              className="text-text-secondary hover:text-white transition-colors"
+        {error && (() => {
+          const isStatus = error.includes('sucht') || 
+                          error.includes('suchen') || 
+                          error.includes('gestartet') || 
+                          error.includes('ermittelt') || 
+                          error.includes('Ortung');
+          return (
+            <div className={`mb-6 border p-4 rounded-2xl flex items-center gap-3 animate-shake shrink-0
+              ${isStatus 
+                ? 'bg-primary/10 border-primary/30 text-primary shadow-primary/5' 
+                : 'bg-red-500/10 border-red-500/30 text-red-400 shadow-red-500/5'
+              }`}
             >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-        )}
+              <span className={`material-symbols-outlined size-9 flex items-center justify-center rounded-xl shrink-0
+                ${isStatus ? 'bg-primary/20 text-primary animate-spin' : 'bg-red-500/20 text-red-400'}`}
+              >
+                {isStatus ? 'sync' : 'warning'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-xs uppercase tracking-wider">
+                  {isStatus ? 'Standort-Status' : 'Meldung'}
+                </p>
+                <p className="text-xs md:text-sm opacity-90 break-words">{error}</p>
+              </div>
+              <button 
+                onClick={() => setError(null)}
+                className="text-text-secondary hover:text-white transition-colors p-1"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          );
+        })()}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-6 space-y-6">
           <section className="bg-surface-dark rounded-3xl p-6 border border-border-dark shadow-xl">
@@ -390,11 +430,14 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 
             <button 
               type="button"
+              disabled={isLocating}
               onClick={getCurrentLocation}
-              className="w-full h-12 flex items-center justify-center gap-3 bg-secondary/10 border border-secondary/20 text-secondary rounded-xl font-bold hover:bg-secondary/20 transition-all mb-4"
+              className={`w-full h-12 flex items-center justify-center gap-3 bg-secondary/10 border border-secondary/20 text-secondary rounded-xl font-bold hover:bg-secondary/20 transition-all mb-4 ${isLocating ? 'animate-pulse cursor-not-allowed text-secondary/60' : ''}`}
             >
-              <span className="material-symbols-outlined">my_location</span>
-              Meine Position verwenden
+              <span className={`material-symbols-outlined ${isLocating ? 'animate-spin' : ''}`}>
+                {isLocating ? 'sync' : 'my_location'}
+              </span>
+              {isLocating ? 'Standort wird gesucht...' : 'Meine Position verwenden'}
             </button>
 
             <div className="flex-1 min-h-[450px] relative rounded-2xl overflow-hidden border border-border-dark z-0 shadow-inner">
