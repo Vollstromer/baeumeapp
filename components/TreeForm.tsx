@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Tree, Meadow, TreeCondition } from '../types';
 import { MapStyle } from '../App';
@@ -28,6 +27,8 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 
   const [isUploading, setIsUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(tree?.imageUrl || null);
+  const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const tileLayerRef = useRef<any>(null);
@@ -172,18 +173,20 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
       
       if (publicUrl) {
         setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+        setError(null);
         
         // Automatisches Aufräumen: Altes Bild löschen, wenn es ersetzt wurde
         if (oldImageUrl) {
           await db.deleteImage(oldImageUrl);
         }
       } else {
-        alert("Upload fehlgeschlagen. Bild wird nur lokal angezeigt.");
+        setError("Upload-Fehler: Das Bild konnte nicht in der Cloud gespeichert werden, wird aber temporär lokal verwendet.");
       }
     }
   };
 
   const getCurrentLocation = () => {
+    setError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -191,10 +194,21 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
         mapInstance.current?.flyTo([latitude, longitude], 19);
       },
       () => {
-        alert("Standort konnte nicht ermittelt werden.");
+        setError("Standort konnte nicht ermittelt werden (Prüfen Sie Ihre GPS- und Berechtigungseinstellungen).");
       },
       { enableHighAccuracy: true }
     );
+  };
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (tree && onDelete) {
+      onDelete(tree.id);
+    }
+    setShowDeleteConfirm(false);
   };
 
   const getConditionStyles = (cond: TreeCondition, isSelected: boolean) => {
@@ -243,7 +257,23 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto w-full p-6 md:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto w-full p-6 md:p-10">
+        {error && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-2xl flex items-center gap-3 animate-shake shrink-0">
+            <span className="material-symbols-outlined size-9 flex items-center justify-center bg-red-500/20 rounded-xl shrink-0">warning</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-xs uppercase tracking-wider">Meldung</p>
+              <p className="text-xs md:text-sm opacity-90">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="text-text-secondary hover:text-white transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        )}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-6 space-y-6">
           <section className="bg-surface-dark rounded-3xl p-6 border border-border-dark shadow-xl">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-3">
@@ -396,17 +426,53 @@ const TreeForm: React.FC<TreeFormProps> = ({ tree, meadows, allTrees, mapStyle, 
 
             {tree && (
               <button 
-                onClick={() => onDelete(tree.id)}
+                onClick={handleDelete}
                 className="mt-6 w-full h-12 flex items-center justify-center gap-2 border border-red-500/30 text-red-400 bg-red-500/5 hover:bg-red-500/10 rounded-xl transition-all font-bold text-sm"
               >
                 <span className="material-symbols-outlined text-lg">delete</span>
                 Diesen Baum löschen
               </button>
             )}
+
+            {showDeleteConfirm && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in pointer-events-auto">
+                <div className="bg-surface-dark border border-red-500/30 rounded-[2rem] max-w-md w-full p-6 md:p-8 shadow-2xl text-left">
+                  <div className="flex items-center gap-4 text-red-400 mb-4">
+                    <span className="material-symbols-outlined text-4xl bg-red-500/10 p-3 rounded-2xl">warning</span>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Baum löschen?</h3>
+                      <p className="text-xs text-text-secondary uppercase tracking-widest font-bold">Unwiderruflicher Vorgang</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-text-secondary text-sm leading-relaxed mb-6">
+                    Soll dieser Baum wirklich von der Wiese entfernt werden?
+                  </p>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 h-12 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold transition-all border border-white/5 text-sm"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDelete}
+                      className="flex-1 h-12 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-500/20 text-sm"
+                    >
+                      Löschen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </div>
     </div>
+  </div>
   );
 };
 
